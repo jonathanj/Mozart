@@ -3,6 +3,7 @@ import codecs, re, unicodedata
 from mozart.win32 import (constants, Application, KeyboardHook, NotifyIcon,
     MessageOnlyWindow, Icon, DefaultProcedure, Menu, MenuItem, Timer)
 from mozart.hooks import ComposeHook
+from mozart.loader import readCompositions
 
 
 NOTIFY_MESSAGE = constants.WM_USER + 1
@@ -24,25 +25,19 @@ def compositionsFromFile(path):
         <LATIN CAPITAL LETTER A> <LATIN CAPITAL LETTER T> <COMMERCIAL AT>
 
     @type path: C{str} or C{unicode}
-    @param path: Path to composition map
+    @param path: Path to composition map.
 
-    @rtype: C{dict} mapping a C{2-tuple} to C{int}
-    @return: A mapping of 2-tuples of ordinals for composition
-        sequences to composition ordinals
+    @rtype: C{dict} mapping a C{tuple} to C{tuple} of C{int}
+    @return: A mapping of tuples of ordinals for composition
+        sequences to composition tuples of ordinals.
     """
-    pattern = re.compile(r'<(.*?)>')
     compositions = {}
-    for i, line in enumerate(codecs.open(path, 'r', 'utf-8')):
-        v = re.findall(pattern, line)
-        if len(v) != 3:
-            raise ValueError(u'Line %d of "%s": Expected 3 composition items, found %d' % (i, path, len(v)))
-
-        a = ord(unicodedata.lookup(v[0]))
-        b = ord(unicodedata.lookup(v[1]))
-        r = ord(unicodedata.lookup(v[2]))
-        compositions[(a, b)] = r
+    for keys, result in readCompositions(path):
+        keys = tuple(map(ord, keys))
+        compositions[keys] = tuple(map(ord, result))
 
     return compositions
+
 
 
 class MozartWindow(MessageOnlyWindow):

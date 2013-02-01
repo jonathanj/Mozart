@@ -48,11 +48,11 @@ class ComposeHook(Hook):
 
         @type hotKey: C{int}
         @param hotKey: Virtual-key code of the key that should initiate a
-            a composition
+            a composition.
 
-        @type compositions: C{dict} mapping a C{2-tuple} to C{int}
-        @param compositions: A mapping of 2-tuples of ordinals for composition
-            sequences to composition ordinals
+        @type compositions: C{dict} mapping a C{tuple} to C{tuple} of C{int}
+        @param compositions: A mapping of tuples of ordinals for composition
+            sequences to composition tuple ordinals.
 
         @type callback: C{callable} taking C{unicode}
         @param callback: A callback that is fired with the state name whenever
@@ -61,6 +61,7 @@ class ComposeHook(Hook):
         self.hotKey = hotKey
         self.compositions = compositions
         self.callback = callback
+        self.maxCompositionLength = max(map(len, self.compositions.keys()))
 
         self.keyboardState = (CHAR * 256)()
         user32.GetKeyboardState(self.keyboardState)
@@ -139,6 +140,14 @@ class ComposeHook(Hook):
                 return vkCode, False
             return ord(buf.value[:rv]), True
 
+
+    def _compositionResult(self):
+        """
+        Retrieve the current composition result.
+        """
+        return self.compositions.get(tuple(self.composeKeys))
+
+
     def compose(self):
         """
         Compose buffered keys and buffer the composition.
@@ -146,13 +155,9 @@ class ComposeHook(Hook):
         If the composition is invalid a beep is sounded.  In either case, the
         C{done} event is triggered.
         """
-        if self.composeKeys:
-            comp = self.compositions.get(tuple(self.composeKeys))
-        else:
-            comp = None
-
+        comp = self._compositionResult()
         if comp is not None:
-            self.composition.append(comp)
+            self.composition.extend(comp)
         else:
             user32.MessageBeep(-1)
 
@@ -237,8 +242,7 @@ class ComposeHook(Hook):
                 if self.callback is not None:
                     self.callback(u'key')
                 self.composeKeys.append(tkey)
-                # XXX: don't hardcode this
-                if len(self.composeKeys) == 2:
+                if len(self.composeKeys) == self.maxCompositionLength or self._compositionResult() is not None:
                     self.compose()
 
             return True
